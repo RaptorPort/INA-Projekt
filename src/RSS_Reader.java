@@ -6,18 +6,18 @@ import java.util.regex.Pattern;
 
 import javax.net.ssl.HttpsURLConnection;
 
+
 public class RSS_Reader {
 
 
-	public void console() {
+	public static void console() {
+		deleteTempFiles();
 		System.out.println("Enter URL to get RSS from:");
 		Scanner in = new Scanner(System.in); 
-        String url = in.next(); 
-        if (!url.startsWith("http//:")) {
-        	url = "https://" + url;
-        }
+        String s = in.next(); 
+        URL url = makeURL(s);
+		getXMLfiles(getRSSlinks(url));
         in.close();
-        getRSSlinks(url);
 	}
 	
 	private static URL makeURL(String in) {
@@ -25,9 +25,10 @@ public class RSS_Reader {
 		try {
 			url = new URL(in);
 		} catch (MalformedURLException e) {
-			e.printStackTrace();
-			if (!in.startsWith("http//:")) {
+			//e.printStackTrace();
+			if (e.getMessage().contains("no protocol")) {
 	        	in = "https://" + in;
+	        	return makeURL(in);
 	        }
 		}
 		return url;
@@ -36,24 +37,42 @@ public class RSS_Reader {
 	
 	private static void streamToFile(String name, InputStream inStream) {
 		try {
-			BufferedWriter writer = new BufferedWriter(new FileWriter("C:\\Users\\nicom\\git\\repository\\INA-Projekt\\temp\\" + name));
-			Scanner in = new Scanner(inStream);
-	   
-	    	while (in.hasNextLine()) {
-				writer.write(in.nextLine());
-				writer.newLine();
-			} 
-	    	in.close();
-	    	writer.close();
-	    }
-	    catch (IOException e) {
-				e.printStackTrace();
-			}    
+			OutputStream outStream = new FileOutputStream("temp/" + name);
+				
+			byte[] buffer = new byte[8 * 1024];
+			int bytesRead;
+			while ((bytesRead = inStream.read(buffer)) != -1) {
+				outStream.write(buffer, 0, bytesRead);
+				}
+				inStream.close();
+				outStream.close();
+				
+		} catch (FileNotFoundException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}  
+	}
+	
+	private static void deleteTempFiles() {
+		File dir = new File("temp/");
+		
+		if(dir.isDirectory() == false) {
+			System.out.println("Not a directory. Do nothing");
+			return;
+		}
+		File[] listFiles = dir.listFiles();
+		for(File file : listFiles){
+			System.out.println("Deleting "+file.getName());
+			file.delete();
+		}
 	}
 	
 	public static InputStream httpConnection(URL url) {
 		try {
-			if (url.getProtocol().toString() == "https") {
+			if (url.getProtocol().equals("https")) {
 				HttpsURLConnection huc = (HttpsURLConnection) url.openConnection();
 				huc.setRequestMethod("GET");
 	
@@ -63,7 +82,7 @@ public class RSS_Reader {
 					//System.out.println(huc.getResponseMessage()); // OK
 					return huc.getInputStream();
 				}
-			} else if (url.getProtocol().toString() == "http") {
+			} else if (url.getProtocol().equals("http")) {
 				HttpURLConnection huc = (HttpURLConnection) url.openConnection();
 				huc.setRequestMethod("GET");
 	
@@ -87,9 +106,8 @@ public class RSS_Reader {
 	
 	
 	
-	private static Vector<URL> getRSSlinks(String myurl) {
-		URL url = makeURL(myurl);
-		Vector<URL> result = new Vector();
+	private static Vector<URL> getRSSlinks(URL url) {
+		Vector<URL> result = new Vector<URL>();
 		
 		InputStream is = httpConnection(url);
 		if (is == null) {
@@ -102,15 +120,11 @@ public class RSS_Reader {
 			String s = in.nextLine();
 			Matcher m = p.matcher(s);
 			while(m.find()) {
-				for (int i = 1; i <= m.groupCount(); i++)
-					try {
-						System.out.println(i);
-						//System.out.println(m.group(i));
-						result.add(new URL(m.group(i)));
-					} catch (MalformedURLException e) {
-						//skip
-					}
+				for (int i = 1; i <= m.groupCount(); i++) {
+					result.add(makeURL(m.group(i)));
+				}
 			}
+			System.out.println(s);
 		} 
     	in.close();
     	try {
@@ -131,7 +145,10 @@ public class RSS_Reader {
 	}
 	
 	public static void main(String[] args) {
-		getXMLfiles(getRSSlinks("https://www.spiegel.de"));
+		console();
+		//deleteTempFiles();
+		//URL url = makeURL("www.spiegel.de");
+		//getXMLfiles(getRSSlinks(url));
 
 	}
 
